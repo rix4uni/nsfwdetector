@@ -2,6 +2,7 @@ package main
 
 import (
         "bufio"
+        "fmt"
         "io/ioutil"
         "net/http"
         "os"
@@ -24,7 +25,7 @@ func checkNSFW(content string, keywords []string) []string {
         return matchedKeywords
 }
 
-func checkURL(url string, keywords []string, timeout int, wg *sync.WaitGroup) {
+func checkURL(url string, keywords []string, timeout int, wg *sync.WaitGroup, outputFile *os.File) {
         defer wg.Done()
 
         // Create an HTTP client with a timeout
@@ -57,9 +58,17 @@ func checkURL(url string, keywords []string, timeout int, wg *sync.WaitGroup) {
                         matchedKeywords := checkNSFW(string(body), keywords)
                         // Format the matched keywords as a comma-separated string
                         if len(matchedKeywords) > 0 {
-                                logrus.Infof("%s [%s]", tryURL, strings.Join(matchedKeywords, ", "))
+                                output := fmt.Sprintf("%s [%s]", tryURL, strings.Join(matchedKeywords, ", "))
+                                logrus.Infof(output)
+                                if outputFile != nil {
+                                        fmt.Fprintln(outputFile, output)
+                                }
                         } else {
-                                logrus.Infof("%s []", tryURL)
+                                output := fmt.Sprintf("%s []", tryURL)
+                                logrus.Infof(output)
+                                if outputFile != nil {
+                                        fmt.Fprintln(outputFile, output)
+                                }
                         }
                         return // Exit the loop after successfully processing one URL
                 }
@@ -86,20 +95,32 @@ func checkURL(url string, keywords []string, timeout int, wg *sync.WaitGroup) {
         matchedKeywords := checkNSFW(string(body), keywords)
         // Format the matched keywords as a comma-separated string
         if len(matchedKeywords) > 0 {
-                logrus.Infof("%s [%s]", url, strings.Join(matchedKeywords, ", "))
+                output := fmt.Sprintf("%s [%s]", url, strings.Join(matchedKeywords, ", "))
+                logrus.Infof(output)
+                if outputFile != nil {
+                        fmt.Fprintln(outputFile, output)
+                }
         } else {
-                logrus.Infof("%s []", url)
+                output := fmt.Sprintf("%s []", url)
+                logrus.Infof(output)
+                if outputFile != nil {
+                        fmt.Fprintln(outputFile, output)
+                }
         }
 }
 
 func main() {
-	// Initialize the flags
+        // Initialize the flags
         concurrency := pflag.IntP("concurrency", "c", 50, "Number of concurrent workers")
         timeout := pflag.IntP("timeout", "t", 30, "Timeout for each HTTP request in seconds")
         verbose := pflag.Bool("verbose", false, "Enable verbose logging")
         wordlist := pflag.StringP("wordlist", "w", "keywords.txt", "Path to the file containing keywords to check")
         silent := pflag.Bool("silent", false, "silent mode.")
-	versionFlag := pflag.Bool("version", false, "Print the version of the tool and exit.")
+        versionFlag := pflag.Bool("version", false, "Print the version of the tool and exit.")
+        output := pflag.StringP("output", "o", "", "Path to the output file to save results")
+
+        // Parse the command-line arguments
+        pflag.Parse()
 
         // Set the logging level based on the verbose flag
         logrus.SetOutput(os.Stdout)
@@ -109,18 +130,27 @@ func main() {
                 logrus.SetLevel(logrus.InfoLevel)
         }
 
-        // Parse the command-line arguments
-        pflag.Parse()
-
         if *versionFlag {
-			banner.PrintBanner()
-			banner.PrintVersion()
-			return
-		}
+                banner.PrintBanner()
+                banner.PrintVersion()
+                return
+        }
 
-		if !*silent {
-			banner.PrintBanner()
-		}
+        if !*silent {
+                banner.PrintBanner()
+        }
+
+        // Open output file if specified
+        var outputFile *os.File
+        var err error
+        if *output != "" {
+                outputFile, err = os.Create(*output)
+                if err != nil {
+                        logrus.Fatalf("Error creating output file: %v", err)
+                }
+                defer outputFile.Close()
+                logrus.Infof("Saving results to: %s", *output)
+        }
 
         // Read the keywords from the wordlist file
         file, err := os.Open(*wordlist)
@@ -167,10 +197,14 @@ func main() {
                                 // Release the slot in the semaphore
                                 <-sem
                         }()
-                        checkURL(url, keywords, *timeout, &wg)
+                        checkURL(url, keywords, *timeout, &wg, outputFile)
                 }(url)
         }
 
         // Wait for all workers to finish
         wg.Wait()
+        
+        if outputFile != nil {
+                logrus.Infof("Results saved to: %s", *output)
+        }
 }
