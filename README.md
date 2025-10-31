@@ -14,9 +14,9 @@ go install github.com/rix4uni/nsfwdetector@latest
 
 ## Download prebuilt binaries
 ```
-wget https://github.com/rix4uni/nsfwdetector/releases/download/v0.0.1/nsfwdetector-linux-amd64-0.0.1.tgz
-tar -xvzf nsfwdetector-linux-amd64-0.0.1.tgz
-rm -rf nsfwdetector-linux-amd64-0.0.1.tgz
+wget https://github.com/rix4uni/nsfwdetector/releases/download/v0.0.2/nsfwdetector-linux-amd64-0.0.2.tgz
+tar -xvzf nsfwdetector-linux-amd64-0.0.2.tgz
+rm -rf nsfwdetector-linux-amd64-0.0.2.tgz
 mv nsfwdetector ~/go/bin/nsfwdetector
 ```
 Or download [binary release](https://github.com/rix4uni/nsfwdetector/releases) for your platform.
@@ -28,9 +28,10 @@ cd nsfwdetector; go install
 ```
 
 ## Usage
-```
+```yaml
 Usage of nsfwdetector:
   -c, --concurrency int   Number of concurrent workers (default 50)
+  -o, --output string     Path to the output file to save results
       --silent            silent mode.
   -t, --timeout int       Timeout for each HTTP request in seconds (default 30)
       --verbose           Enable verbose logging
@@ -40,12 +41,12 @@ Usage of nsfwdetector:
 
 ## Usage Examples
 Single Target:
-```
+```yaml
 ▶ echo "domain.com" | nsfwdetector --silent --wordlist keywords.txt
 ```
 
 Multiple Targets:
-```
+```yaml
 ▶ cat targets.txt
 domain.com
 anotherdomain.com
